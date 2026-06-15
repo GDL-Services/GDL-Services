@@ -1,24 +1,29 @@
-/* GDL Services — service worker (app shell offline) */
-const CACHE = 'gdl-v1';
-const ASSETS = ['./','./index.html','./manifest.json','./config.js',
+/* GDL Services — service worker (network-first, evita cache stantia) */
+const CACHE = 'gdl-v2';
+const SHELL = ['./','./index.html','./manifest.json',
   './icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable.png'];
+// NB: config.js NON è in cache: viene sempre preso dalla rete.
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys()
+    .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // Firestore / Google APIs: sempre rete (mai cache)
-  if (/firestore|googleapis|gstatic/.test(url.host)) return;
+  // Firebase / Google / font esterni: sempre rete, mai cache
+  if (/firestore|googleapis|gstatic|firebaseio|firebaseapp/.test(url.host)) return;
+  if (url.origin !== location.origin) return;
+  // Stesso sito: prima la rete (file sempre aggiornati), cache solo come fallback offline
   e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (e.request.method === 'GET' && res.ok && url.origin === location.origin) {
+    fetch(e.request).then(res => {
+      if (e.request.method === 'GET' && res.ok && !url.pathname.endsWith('config.js')) {
         const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy));
       }
       return res;
-    }).catch(() => caches.match('./index.html')))
+    }).catch(() => caches.match(e.request).then(hit => hit || caches.match('./index.html')))
   );
 });
