@@ -318,9 +318,12 @@ const COLLS={
 const Store={
   mode:'local', fb:null, _cache:{bookings:{},spese:{},inventory:{}}, _watchers:{}, _poll:null,
 
+  fbTried:false, fbError:null,
   async init(){
     if(window.FIREBASE_CONFIG&&window.FIREBASE_CONFIG.apiKey){
-      try{await this._initFirebase();this.mode='firebase';return}catch(e){console.warn('Firebase ko',e)}
+      this.fbTried=true;
+      try{await this._initFirebase();this.mode='firebase';return}
+      catch(e){this.fbError=e;console.warn('Firebase non connesso:',e)}
     }
     if(window.storage&&typeof window.storage.get==='function'){this.mode='claude';return}
     this.mode='local';
@@ -963,6 +966,7 @@ async function boot(){
   await Store.init();
   const pill=$('#sync-pill'),txt=$('#sync-txt');
   if(Store.mode==='firebase'){pill.classList.add('cloud');txt.textContent='Cloud sincronizzato'}
+  else if(Store.fbTried){txt.textContent='Cloud non connesso';pill.title='Config letta ma connessione fallita: apri l\'app da https:// (non file://)'}
   else if(Store.mode==='claude'){pill.classList.add('cloud');txt.textContent='Condiviso'}
   else txt.textContent='Locale';
   STATE.me=await Store.getPref('me');renderWho();

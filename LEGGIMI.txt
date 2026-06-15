@@ -99,3 +99,18 @@ Su Android: Chrome → comparirà "Installa app" (o menu → Installa).
   bene).
 
 Buon lavoro!  — GDL Services
+
+------------------------------------------------------------
+ NOVITA' IN QUESTA VERSIONE
+------------------------------------------------------------
+- MAGAZZINO: oltre a verificare la disponibilita' per periodo,
+  puoi MODIFICARE la dotazione (es. hai comprato altri tavoli:
+  tocca l'asset e cambia la quantita') e AGGIUNGERE nuovi asset
+  (pulsante "+ Aggiungi asset" o il tasto +). La modifica e'
+  condivisa con tutti i soci e il controllo disponibilita' si
+  aggiorna da solo.
+- SPESE: registra le spese indicando verso chi, quanto, e da chi
+  e' stata pagata (Conto societario oppure un socio in prima
+  persona). Stato: "Da pagare"/"Pagata" per le spese societarie,
+  "Da rimborsare"/"Rimborsata" per gli anticipi dei soci. Nel
+  Riepilogo trovi quanto va restituito a ciascun socio.
