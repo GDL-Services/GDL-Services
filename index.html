@@ -207,7 +207,9 @@ textarea.input{resize:none;min-height:62px}
 .stepper{display:flex;align-items:center;background:var(--paper);border-radius:11px;overflow:hidden;flex-shrink:0}
 .stepper button{width:34px;height:36px;font-size:19px;font-weight:700;color:var(--navy-700);display:grid;place-items:center}
 .stepper button:active{background:var(--paper-2)}
-.stepper .qv{width:38px;text-align:center;font-family:var(--display);font-weight:800;font-size:15px}
+.stepper .qv{width:48px;text-align:center;font-family:var(--display);font-weight:800;font-size:16px;border:none;background:transparent;color:var(--ink);padding:0;-moz-appearance:textfield}
+.stepper input.qv::-webkit-outer-spin-button,.stepper input.qv::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stepper input.qv:focus{outline:none}
 .toggle{width:50px;height:30px;border-radius:999px;background:var(--line);position:relative;transition:.2s;flex-shrink:0}
 .toggle.on{background:var(--confirm)}
 .toggle::after{content:'';position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
@@ -902,10 +904,15 @@ function openForm(existing,presetDate){
       <div class="ei-tx"><div class="nm">${esc(inv.label)}</div><div class="av" id="av-${res}"></div></div>`;
     if(isToggle(inv)){const cur=qty(draft,res)>0;draft.attrezzature[res]=cur;
       const tg=el('div','toggle'+(cur?' on':''));tg.onclick=()=>{draft.attrezzature[res]=!draft.attrezzature[res];tg.classList.toggle('on',draft.attrezzature[res]);updateAvail()};row.appendChild(tg);
-    }else{const st=el('div','stepper');const step=stepFor(inv);
-      const minus=el('button',null,'−'),val=el('div','qv',String(qty(draft,res))),plus=el('button',null,'+');
-      minus.onclick=()=>{draft.attrezzature[res]=Math.max(0,qty(draft,res)-step);val.textContent=draft.attrezzature[res];updateAvail()};
-      plus.onclick=()=>{draft.attrezzature[res]=Math.min(inv.total,qty(draft,res)+step);val.textContent=draft.attrezzature[res];updateAvail()};
+    }else{const st=el('div','stepper');
+      const minus=el('button',null,'−');
+      const val=document.createElement('input');val.className='qv';val.type='number';val.inputMode='numeric';val.min=0;val.max=inv.total;val.value=qty(draft,res);
+      const plus=el('button',null,'+');
+      const setv=n=>{n=Math.max(0,Math.min(inv.total,Math.round(n)||0));draft.attrezzature[res]=n;val.value=n;updateAvail()};
+      minus.onclick=()=>setv(qty(draft,res)-1);
+      plus.onclick=()=>setv(qty(draft,res)+1);
+      val.oninput=()=>{let n=parseInt(val.value,10);if(isNaN(n))n=0;draft.attrezzature[res]=Math.max(0,Math.min(inv.total,n));updateAvail()};
+      val.onblur=()=>setv(parseInt(val.value,10)||0);
       st.appendChild(minus);st.appendChild(val);st.appendChild(plus);row.appendChild(st)}
     eqc.appendChild(row)});
 
@@ -962,6 +969,14 @@ async function seedIfEmpty(){
     for(const x of demoS){x.id='s'+Date.now()+Math.random().toString(36).slice(2,6);x.createdAt=Date.now();await Store.saveItem('spese',x)}
   }
 }
+async function primeShared(){
+  // Solo anteprima Claude / locale: crea le chiavi vuote se mancano,
+  // così i controlli periodici non generano errori 404. NON tocca Firebase.
+  if(Store.mode!=='claude'&&Store.mode!=='local')return;
+  for(const c of ['bookings','spese']){
+    try{const m=await Store.read(c);if(!m||!Object.keys(m).length)await Store.write(c,{})}catch(e){}
+  }
+}
 async function boot(){
   await Store.init();
   const pill=$('#sync-pill'),txt=$('#sync-txt');
@@ -972,6 +987,7 @@ async function boot(){
   STATE.me=await Store.getPref('me');renderWho();
   await loadInventory();
   await seedIfEmpty();
+  await primeShared();
   STATE.bookings=await Store.loadAll('bookings');
   STATE.spese=await Store.loadAll('spese');
   Store.watch('bookings',arr=>{STATE.bookings=arr;render()});
