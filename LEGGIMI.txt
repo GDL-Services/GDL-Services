@@ -1,0 +1,101 @@
+============================================================
+ GDL SERVICES — App Gestione Noleggi (PWA)
+============================================================
+
+COSA FA
+- Calendario condiviso degli impegni dei 4 soci (Giuseppe,
+  Domenico, Luigi, Gabriele).
+- Preventivi: cliente, venditore, periodo (anche più giorni),
+  importo, attrezzature, stato "Da confermare" / "Confermato".
+- Controllo automatico della disponibilità: non puoi confermare
+  più attrezzatura di quella che hai (es. se hai 70 kit birreria
+  confermati in un giorno, su quel giorno restano max 30).
+- Riepilogo: fatturato confermato, preventivi aperti, dati per
+  socio, prossimi impegni.
+- Installabile sul telefono come app (icona in home).
+
+DOTAZIONE GESTITA
+- 100 Kit Set Birreria (1 kit = 1 tavolo + 2 panche)
+- Generatore 30 kW e Generatore 50 kW (1 ciascuno)
+- 50 Transenne
+- 75 metri di canalina passacavo
+
+------------------------------------------------------------
+ USO IMMEDIATO (senza configurare nulla)
+------------------------------------------------------------
+Apri index.html: l'app funziona subito in modalità "Locale"
+(i dati restano sul singolo dispositivo). Utile per provare.
+
+------------------------------------------------------------
+ SINCRONIZZARE I 4 TELEFONI IN TEMPO REALE (consigliato)
+------------------------------------------------------------
+Serve un progetto Firebase gratuito (di Google). 10 minuti, una
+sola volta. Poi ogni prenotazione fatta da un socio compare
+subito a tutti gli altri.
+
+1) Vai su https://console.firebase.google.com → "Aggiungi progetto"
+   (nome: gdl-services). Disattiva pure Google Analytics.
+
+2) Nel progetto, menu a sinistra → "Build" → "Firestore Database"
+   → "Crea database" → modalità "test" (o produzione) → regione
+   europe-west.
+
+3) In alto, icona ingranaggio → "Impostazioni progetto" → scorri
+   a "Le tue app" → icona "</>" (Web) → registra l'app.
+   Ti mostra un blocco "firebaseConfig" con apiKey, projectId, ecc.
+
+4) Apri il file  config.js  e incolla quei valori al posto delle
+   righe commentate, togliendo le "//". Esempio:
+
+   window.FIREBASE_CONFIG = {
+     apiKey: "AIzaSy...",
+     authDomain: "gdl-services.firebaseapp.com",
+     projectId: "gdl-services",
+     storageBucket: "gdl-services.appspot.com",
+     messagingSenderId: "123456789",
+     appId: "1:123...:web:abc..."
+   };
+
+5) (Regole) In Firestore → "Regole", per partire incolla:
+
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /{document=**} { allow read, write: if true; }
+     }
+   }
+
+   NB: regole aperte = chiunque abbia il link può scrivere.
+   Va bene per iniziare tra voi 4. Per maggiore sicurezza si
+   aggiunge in seguito un login (posso aiutarti).
+
+------------------------------------------------------------
+ PUBBLICARE L'APP ONLINE (per averla sui telefoni)
+------------------------------------------------------------
+La PWA va servita da un indirizzo https. Il modo più semplice e
+gratuito:
+
+OPZIONE A — Netlify Drop (zero configurazione)
+  1. Vai su https://app.netlify.com/drop
+  2. Trascina l'INTERA cartella "gdl" nella pagina.
+  3. Ottieni un link tipo  https://gdl-services.netlify.app
+  4. Aprilo dal telefono → menu del browser → "Aggiungi a Home".
+
+OPZIONE B — GitHub Pages
+  Carica i file in un repository e attiva Pages.
+
+Su iPhone: Safari → tasto Condividi → "Aggiungi a Home".
+Su Android: Chrome → comparirà "Installa app" (o menu → Installa).
+
+------------------------------------------------------------
+ NOTE
+------------------------------------------------------------
+- L'identità del socio ("chi sei") si sceglie al primo avvio e
+  resta su quel telefono; le PRENOTAZIONI invece sono condivise.
+- Funziona offline (app già aperta una volta); le modifiche si
+  sincronizzano appena torna la rete.
+- I dati delle prenotazioni stanno nel tuo Firestore: nessuno
+  all'infuori di voi vi accede (con le regole di sicurezza messe
+  bene).
+
+Buon lavoro!  — GDL Services
