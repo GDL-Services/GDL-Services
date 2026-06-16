@@ -313,9 +313,9 @@ const euro=n=>'€ '+(Number(n)||0).toLocaleString('it-IT',{minimumFractionDigit
    Priorità: Firebase (PWA) > window.storage (Claude) > localStorage
    ============================================================ */
 const COLLS={
-  bookings:{key:'gdl_bookings_v1',doc:'prenotazioni'},
-  spese:{key:'gdl_spese_v1',doc:'spese'},
-  inventory:{key:'gdl_inventory_v1',doc:'inventario'},
+  bookings:{key:'gdl_bookings_v1',docOld:'prenotazioni',coll:'prenotazioni'},
+  spese:{key:'gdl_spese_v1',docOld:'spese',coll:'spese'},
+  inventory:{key:'gdl_inventory_v1',docOld:'inventario',coll:'inventario'},
 };
 const Store={
   mode:'local', fb:null, _cache:{bookings:{},spese:{},inventory:{}}, _watchers:{}, _poll:null,
@@ -348,14 +348,36 @@ const Store={
     if(this.mode==='claude'){await window.storage.set(COLLS[coll].key,JSON.stringify(map),true);this._cache[coll]=map;return}
     localStorage.setItem(COLLS[coll].key,JSON.stringify(map));window.dispatchEvent(new Event('gdl-local-'+coll));this._cache[coll]=map;
   },
-  async loadAll(coll){const m=await this.read(coll);this._cache[coll]=m;return Object.values(m)},
-  async saveItem(coll,item){const m=await this.read(coll);m[item.id]=item;await this.write(coll,m)},
-  async deleteItem(coll,id){const m=await this.read(coll);delete m[id];await this.write(coll,m)},
+  async loadAll(coll){
+    if(this.mode==='firebase'){const fs=this.fb.fs,db=this.fb.db;const snap=await fs.getDocs(fs.collection(db,COLLS[coll].coll));const arr=snap.docs.map(x=>x.data());const m={};arr.forEach(o=>{if(o&&o.id)m[o.id]=o});this._cache[coll]=m;return arr}
+    const m=await this.read(coll);this._cache[coll]=m;return Object.values(m)
+  },
+  async saveItem(coll,item){
+    if(this.mode==='firebase'){await this.fb.fs.setDoc(this.fb.fs.doc(this.fb.db,COLLS[coll].coll,item.id),item);return}
+    const m=await this.read(coll);m[item.id]=item;await this.write(coll,m)
+  },
+  async deleteItem(coll,id){
+    if(this.mode==='firebase'){await this.fb.fs.deleteDoc(this.fb.fs.doc(this.fb.db,COLLS[coll].coll,id));return}
+    const m=await this.read(coll);delete m[id];await this.write(coll,m)
+  },
+  async migrate(coll){
+    if(this.mode!=='firebase')return;
+    const fs=this.fb.fs,db=this.fb.db;
+    try{
+      const newSnap=await fs.getDocs(fs.collection(db,COLLS[coll].coll));
+      if(!newSnap.empty)return; // già in formato nuovo
+      const oldDoc=await fs.getDoc(fs.doc(db,'gdl',COLLS[coll].docOld));
+      const data=(oldDoc&&oldDoc.exists&&oldDoc.exists())?oldDoc.data():null;
+      const map=data&&data.map?data.map:null;
+      if(map){for(const id of Object.keys(map)){const it=map[id]||{};if(!it.id)it.id=id;await fs.setDoc(fs.doc(db,COLLS[coll].coll,it.id),it)}}
+    }catch(e){console.warn('Migrazione',coll,e)}
+  },
 
   watch(coll,cb){
     this._watchers[coll]=cb;
     if(this.mode==='firebase'){
-      this.fb.fs.onSnapshot(this._ref(coll),snap=>{const d=snap.data();this._cache[coll]=(d&&d.map)||{};cb(Object.values(this._cache[coll]))});
+      const fs=this.fb.fs,db=this.fb.db;
+      fs.onSnapshot(fs.collection(db,COLLS[coll].coll),snap=>{const arr=snap.docs.map(x=>x.data());const m={};arr.forEach(o=>{if(o&&o.id)m[o.id]=o});this._cache[coll]=m;cb(arr)});
     }else if(this.mode==='claude'){
       if(!this._poll){this._last={};
         this._poll=setInterval(async()=>{
@@ -947,8 +969,9 @@ function openForm(existing,presetDate){
    BOOTSTRAP + SYNC
    ============================================================ */
 async function loadInventory(){
-  let m=await Store.read('inventory');
-  if(!m||!Object.keys(m).length){m=JSON.parse(JSON.stringify(INV_DEFAULT));await Store.write('inventory',m)}
+  const arr=await Store.loadAll('inventory');
+  const m={};arr.forEach(o=>{if(o&&o.id)m[o.id]=o});
+  if(!Object.keys(m).length){const def=JSON.parse(JSON.stringify(INV_DEFAULT));for(const id of Object.keys(def)){await Store.saveItem('inventory',def[id]);m[id]=def[id]}}
   INV=m;
 }
 async function seedIfEmpty(){
@@ -985,6 +1008,7 @@ async function boot(){
   else if(Store.mode==='claude'){pill.classList.add('cloud');txt.textContent='Condiviso'}
   else txt.textContent='Locale';
   STATE.me=await Store.getPref('me');renderWho();
+  if(Store.mode==='firebase'){for(const c of ['inventory','bookings','spese'])await Store.migrate(c)}
   await loadInventory();
   await seedIfEmpty();
   await primeShared();
