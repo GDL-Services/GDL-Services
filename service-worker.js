@@ -1,5 +1,5 @@
 /* GDL Services — service worker (network-first, evita cache stantia) */
-const CACHE = 'gdl-v3';
+const CACHE = 'gdl-v4';
 const SHELL = ['./','./index.html','./manifest.json',
   './icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable.png'];
 // NB: config.js NON è in cache: viene sempre preso dalla rete.

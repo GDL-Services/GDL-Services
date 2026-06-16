@@ -392,6 +392,19 @@ const Store={
       window.addEventListener('storage',async e=>{if(e.key===COLLS[coll].key)cb(await this.loadAll(coll))});
     }
   },
+  async getMeta(){
+    if(this.mode!=='firebase')return {};
+    try{const fs=this.fb.fs,db=this.fb.db;const d=await fs.getDoc(fs.doc(db,'app','meta'));return (d&&d.exists&&d.exists())?d.data():{}}catch(e){return {}}
+  },
+  async setMeta(patch){
+    if(this.mode!=='firebase')return;
+    try{const fs=this.fb.fs,db=this.fb.db;await fs.setDoc(fs.doc(db,'app','meta'),patch,{merge:true})}catch(e){}
+  },
+  async deleteOld(){
+    if(this.mode!=='firebase')return;
+    const fs=this.fb.fs,db=this.fb.db;
+    for(const c of ['bookings','spese','inventory']){try{await fs.deleteDoc(fs.doc(db,'gdl',COLLS[c].docOld))}catch(e){}}
+  },
   async getPref(k){
     if(this.mode==='claude'){try{const r=await window.storage.get('gdl_pref_'+k,false);return r?r.value:null}catch(e){return null}}
     try{return localStorage.getItem('gdl_pref_'+k)}catch(e){return null}
@@ -971,7 +984,7 @@ function openForm(existing,presetDate){
 async function loadInventory(){
   const arr=await Store.loadAll('inventory');
   const m={};arr.forEach(o=>{if(o&&o.id)m[o.id]=o});
-  if(!Object.keys(m).length){const def=JSON.parse(JSON.stringify(INV_DEFAULT));for(const id of Object.keys(def)){await Store.saveItem('inventory',def[id]);m[id]=def[id]}}
+  if(!Object.keys(m).length && Store.mode!=='firebase'){const def=JSON.parse(JSON.stringify(INV_DEFAULT));for(const id of Object.keys(def)){await Store.saveItem('inventory',def[id]);m[id]=def[id]}}
   INV=m;
 }
 async function seedIfEmpty(){
@@ -1008,10 +1021,21 @@ async function boot(){
   else if(Store.mode==='claude'){pill.classList.add('cloud');txt.textContent='Condiviso'}
   else txt.textContent='Locale';
   STATE.me=await Store.getPref('me');renderWho();
-  if(Store.mode==='firebase'){for(const c of ['inventory','bookings','spese'])await Store.migrate(c)}
-  await loadInventory();
-  await seedIfEmpty();
-  await primeShared();
+  if(Store.mode==='firebase'){
+    const meta=await Store.getMeta();
+    if(!meta.initialized){
+      for(const c of ['inventory','bookings','spese'])await Store.migrate(c);
+      const inv=await Store.loadAll('inventory');
+      if(!inv.length){const def=JSON.parse(JSON.stringify(INV_DEFAULT));for(const id of Object.keys(def))await Store.saveItem('inventory',def[id])}
+      await Store.deleteOld();
+      await Store.setMeta({initialized:true});
+    }
+    await loadInventory();
+  }else{
+    await loadInventory();
+    await seedIfEmpty();
+    await primeShared();
+  }
   STATE.bookings=await Store.loadAll('bookings');
   STATE.spese=await Store.loadAll('spese');
   Store.watch('bookings',arr=>{STATE.bookings=arr;render()});
