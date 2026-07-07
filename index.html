@@ -1653,7 +1653,7 @@ function openFirma(id,cb){
 }
 function openContrattoForm(existing,modelloId){
   const editing=!!existing;
-  const draft=existing?JSON.parse(JSON.stringify(existing)):{id:'c'+Date.now()+Math.random().toString(36).slice(2,6),modello:modelloId||'birreria',cliente:'',venditore:STATE.me||SOCI[0],dataInizio:today(),dataFine:today(),importo:'',luogo:'',attrezzatureText:'',stato:'bozza',note:'',firma:null,createdBy:STATE.me||SOCI[0],createdAt:Date.now()};
+  const draft=existing?JSON.parse(JSON.stringify(existing)):{id:'c'+Date.now()+Math.random().toString(36).slice(2,6),modello:modelloId||'birreria',cliente:'',cf:'',indirizzo:'',natoA:'',docId:'',telefono:'',email:'',referente:'',venditore:STATE.me||SOCI[0],dataInizio:today(),dataFine:today(),importo:'',luogo:'',attrezzatureText:'',stato:'bozza',note:'',firma:null,createdBy:STATE.me||SOCI[0],createdAt:Date.now()};
   if(!draft.modello)draft.modello='birreria';
   const body=el('div');
   const mf=el('div','field');mf.innerHTML=`<label>Modello di contratto</label>`;const mrow=el('div','filters');mrow.style.marginBottom='0';
@@ -1669,7 +1669,18 @@ function openContrattoForm(existing,modelloId){
     pick.appendChild(sel);body.appendChild(pick);
   }
   const main=el('div');main.innerHTML=`
-    <div class="field"><label>Cliente</label><input class="input" id="c-cli" placeholder="Nome cliente / ragione sociale" value="${esc(draft.cliente)}"></div>
+    <div class="field"><label>Cliente (nome / ragione sociale)</label><input class="input" id="c-cli" placeholder="Nome cliente / ragione sociale" value="${esc(draft.cliente)}"></div>
+    <div class="sect-t" style="margin:2px 0 8px">Dati cliente</div>
+    <div class="field"><label>C.F. / P.IVA</label><input class="input" id="c-cf" placeholder="Codice fiscale o partita IVA" value="${esc(draft.cf||'')}"></div>
+    <div class="field"><label>Indirizzo / sede</label><input class="input" id="c-ind" placeholder="Via, n., città (CAP)" value="${esc(draft.indirizzo||'')}"></div>
+    <div class="field"><label>Nato/a a … il … (o sede legale)</label><input class="input" id="c-nat" placeholder="Es. Trivento, 01/01/1980" value="${esc(draft.natoA||'')}"></div>
+    <div class="field"><label>Documento identità n.</label><input class="input" id="c-doc" placeholder="Tipo e numero documento" value="${esc(draft.docId||'')}"></div>
+    <div class="two">
+      <div class="field"><label>Telefono</label><input class="input" id="c-tel" inputmode="tel" placeholder="Cellulare" value="${esc(draft.telefono||'')}"></div>
+      <div class="field"><label>Email / PEC</label><input class="input" id="c-mail" inputmode="email" placeholder="email" value="${esc(draft.email||'')}"></div>
+    </div>
+    <div class="field"><label>Referente ritiro/consegna</label><input class="input" id="c-ref" placeholder="Nome e telefono referente" value="${esc(draft.referente||'')}"></div>
+    <div class="sect-t" style="margin:2px 0 8px">Noleggio</div>
     <div class="two">
       <div class="field"><label>Dal</label><input class="input" type="date" id="c-da" value="${draft.dataInizio}"></div>
       <div class="field"><label>Al</label><input class="input" type="date" id="c-a" value="${draft.dataFine}"></div>
@@ -1682,6 +1693,13 @@ function openContrattoForm(existing,modelloId){
   const foot=el('div','sheet-foot');const save=el('button','btn btn-primary',editing?'Salva':'Crea contratto');foot.appendChild(save);
   const sheet=openSheet(editing?'Modifica contratto':'Nuovo contratto',body,foot);
   main.querySelector('#c-cli').oninput=e=>draft.cliente=e.target.value;
+  main.querySelector('#c-cf').oninput=e=>draft.cf=e.target.value;
+  main.querySelector('#c-ind').oninput=e=>draft.indirizzo=e.target.value;
+  main.querySelector('#c-nat').oninput=e=>draft.natoA=e.target.value;
+  main.querySelector('#c-doc').oninput=e=>draft.docId=e.target.value;
+  main.querySelector('#c-tel').oninput=e=>draft.telefono=e.target.value;
+  main.querySelector('#c-mail').oninput=e=>draft.email=e.target.value;
+  main.querySelector('#c-ref').oninput=e=>draft.referente=e.target.value;
   main.querySelector('#c-da').onchange=e=>draft.dataInizio=e.target.value;
   main.querySelector('#c-a').onchange=e=>draft.dataFine=e.target.value;
   main.querySelector('#c-luo').oninput=e=>draft.luogo=e.target.value;
@@ -1712,7 +1730,7 @@ async function buildContrattoPDF(c,opts){
   doc.setFont('helvetica','bold');doc.setFontSize(8.3);doc.setTextColor(40);doc.text('NOLEGGIATORE / LOCATORE',M,y);y+=4.2;doc.setFont('helvetica','normal');
   [AZIENDA.nome,'Sede legale: '+AZIENDA.sedeLegale,'Unità operativa: '+AZIENDA.sedeOp,'C.F./P.IVA: '+AZIENDA.piva+'    REA: '+AZIENDA.rea,'PEC: '+AZIENDA.pec,'Legale rappr.: '+AZIENDA.rappr].forEach(t=>{ensure(4);doc.text(t,M,y);y+=4});
   y+=1.5;doc.setFont('helvetica','bold');doc.text('CLIENTE / NOLEGGIATORE',M,y);y+=4.2;doc.setFont('helvetica','normal');
-  [['Nome/Ragione sociale',c.cliente],['C.F./P.IVA',''],['Nato/a a __ il __ / Sede',''],['Indirizzo',''],['Documento identità n.',''],['Telefono',''],['Email/PEC',''],['Referente ritiro/consegna','']].forEach(([k,v])=>{ensure(4.3);doc.text(k+': '+bl_(v),M,y);y+=4.3});
+  [['Nome/Ragione sociale',c.cliente],['C.F./P.IVA',c.cf],['Nato/a a … il … / Sede',c.natoA],['Indirizzo',c.indirizzo],['Documento identità n.',c.docId],['Telefono',c.telefono],['Email/PEC',c.email],['Referente ritiro/consegna',c.referente]].forEach(([k,v])=>{const ls=doc.splitTextToSize(k+': '+bl_(v),W);ls.forEach(l=>{ensure(4.3);doc.text(l,M,y);y+=4.3})});
   y+=2;
   // 2 scheda
   h1(2,'Scheda del noleggio');doc.setFontSize(8.6);
@@ -1746,6 +1764,17 @@ async function buildContrattoPDF(c,opts){
   doc.text('Per GDL SERVICES SRLS',M,y);doc.text('Il Cliente / Noleggiatore',M+W/2+6,y);y+=3;
   if(c.firma){try{doc.addImage(c.firma,'PNG',M+W/2+6,y,52,18)}catch(e){}}
   y+=20;doc.setDrawColor(120);doc.setLineWidth(0.4);doc.line(M,y,M+62,y);doc.line(M+W/2+6,y,M+W/2+68,y);
+  // allegati (foto contratto firmato / documento) come pagine finali
+  if(!blank&&c.id&&typeof STATE!=='undefined'){
+    const imgs=STATE.allegati.filter(a=>a.contrattoId===c.id&&(a.type||'').startsWith('image/'));
+    imgs.forEach(a=>{doc.addPage();let yy=16;
+      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(11,31,58);doc.text('Allegato — '+(a.tipo||'documento'),M,yy);yy+=5.5;
+      doc.setDrawColor(224,169,46);doc.setLineWidth(0.6);doc.line(M,yy,210-M,yy);yy+=6;
+      try{const pr=doc.getImageProperties(a.dataUrl);const maxW=W,maxH=297-yy-16;let w=maxW,h=w*pr.height/pr.width;if(h>maxH){h=maxH;w=h*pr.width/pr.height}
+        const x=M+(W-w)/2;doc.addImage(a.dataUrl,(a.dataUrl.indexOf('image/png')>-1?'PNG':'JPEG'),x,yy,w,h);
+      }catch(e){doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120);doc.text('(immagine non incorporabile)',M,yy+6)}
+    });
+  }
   // footer
   const N=doc.getNumberOfPages();
   for(let i=1;i<=N;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(150);
